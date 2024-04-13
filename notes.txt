@@ -1,0 +1,129 @@
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+type TransformFunc func(s string) string
+
+func Uppercasse(s string) string {
+	return strings.ToUpper(s)
+}
+
+// decoratora
+func Prefixer(prefix string) TransformFunc {
+	return func(s string) string {
+		return prefix + s
+	}
+}
+
+func transformString(s string, fn TransformFunc) string {
+	return fn(s)
+}
+
+func main() {
+	fmt.Println(transformString("Rana", Uppercasse))
+	fmt.Println(transformString("Rana", Prefixer("BAR_")))
+
+}
+
+
+///--------------------------------------------------------------------------------------
+
+
+package main
+
+import "fmt"
+
+type Storer interface {
+	GetAll() ([]int, error)
+	Put(int) error
+}
+
+type MongoStorer struct {
+	s []int
+	///
+}
+
+func (m *MongoStorer) GetAll() ([]int, error) {
+
+	return m.s, nil
+}
+
+func (m *MongoStorer) Put(n int) error {
+	m.s = append(m.s, n)
+
+	return nil
+}
+
+type ApiServer struct {
+	storer Storer
+}
+
+func main() {
+	apiServer := ApiServer{
+		storer: &MongoStorer{},
+	}
+
+	for i := 0; i < 5; i++ {
+		if err := apiServer.storer.Put((i + 1) * 8); err != nil {
+			panic(err)
+		}
+	}
+
+	res, err := apiServer.storer.GetAll()
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(res)
+
+}
+
+///-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+package main
+
+import "fmt"
+
+type Damager interface {
+	TakeDamage(amount int) error
+	Health(amount int) error
+}
+
+type Player struct {
+	HP int
+}
+
+// function receiver
+func (p *Player) TakeDamage(amount int) error {
+	p.HP -= amount
+	fmt.Println("Player is taking damage. New HP is: ", p.HP)
+
+	return nil
+}
+
+func (p *Player) Health(amount int) error {
+	p.HP += amount
+	fmt.Println("Player is recovered. New HP is: ", p.HP)
+
+	return nil
+}
+
+type NewPlayer struct {
+	player Damager
+}
+
+func main() {
+	p := NewPlayer{
+		player: &Player{
+			HP: 100,
+		},
+	}
+
+	p.player.TakeDamage(34)
+	p.player.Health(17)
+
+}
