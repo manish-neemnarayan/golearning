@@ -1,62 +1,26 @@
 package main
 
-import (
-	"fmt"
-	"time"
-)
+import "sync/atomic"
 
-type Server struct {
-	quitch chan struct{} //0 bytes instead of bool which takes 1 or  2bytes
-	msgch  chan string
+type State struct {
+	// mu    sync.Mutex
+	count int32
 }
 
-func newServer() *Server {
-	return &Server{
-		quitch: make(chan struct{}),
-		msgch:  make(chan string, 128),
-	}
-}
+func (s *State) setState(i int) {
+	// s.mu.Lock()
+	// defer s.mu.Unlock()
 
-func (s *Server) start() {
-	fmt.Println("starting server...")
-	s.loop()
-}
+	// s.count = i
 
-func (s *Server) loop() {
-mainloop:
-	for {
-		select {
-		case <-s.quitch:
-			fmt.Println("quitting server")
-			break mainloop
-		case msg := <-s.msgch:
-			s.handleMessage(msg)
-		}
-	}
-	fmt.Println("server is shutting down...")
-}
-
-func (s *Server) quit() {
-	s.quitch <- struct{}{}
-}
-
-func (s *Server) sendMessage(msg string) {
-	s.msgch <- msg
-}
-
-func (s *Server) handleMessage(msg string) {
-	fmt.Println("we received a message: ", msg)
+	atomic.AddInt32(&s.count, int32(i))
 }
 
 func main() {
-	msgServer := newServer()
+	state := State{}
 
-	go func() {
-		msgServer.sendMessage("COULD BE THE LAST MSG ::::")
-		time.Sleep(time.Second * 5)
-		msgServer.quit()
-	}()
-
-	msgServer.start()
+	for i := 0; i < 10; i++ {
+		state.setState(i + 1)
+	}
 
 }
