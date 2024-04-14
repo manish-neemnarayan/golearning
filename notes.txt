@@ -1,3 +1,8 @@
+regarding channel--->   
+            **buffered channel
+            **unbuffered channel
+        channel in golang will always block if it is full 
+////-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 package main
 
 import (
