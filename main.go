@@ -1,61 +1,109 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 )
 
-type ContextKey string
-
-// const MyKey ContextKey = "username" <-- ContextKey("username") both are same
+type UserProfile struct {
+	ID       int
+	Comments []string
+	Likes    int
+	Friends  []int
+}
 
 func main() {
-	ctx := context.WithValue(context.Background(), ContextKey("username"), "neemnarayan")
-
 	start := time.Now()
-	result, err := fetchUserID(ctx)
+	userProfile, err := handleGetUserProfile(10)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	fmt.Printf("response: %+v\ntook: %v\n", result, time.Since(start))
+	fmt.Printf("%+v\n", userProfile)
+	fmt.Printf("time taken in fetching user profile: %v\n", time.Since(start))
 }
 
-func fetchUserID(ctx context.Context) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, time.Millisecond*100)
-	defer cancel()
+type Response struct {
+	data any
+	err  error
+}
 
-	val := ctx.Value(ContextKey("username"))
-	fmt.Println("the value  = ", val)
+func handleGetUserProfile(id int) (*UserProfile, error) {
+	var (
+		respch = make(chan Response, 3)
+		wg     = &sync.WaitGroup{}
+	)
 
-	type result struct {
-		userId string
-		err    error
-	}
+	//we are doing 3 request inside their own goroutine
+	go getComments(id, respch, wg)
+	go getLikes(id, respch, wg)
+	go getFriends(id, respch, wg)
+	//adding 3 to the waitgroup
+	wg.Add(3)
+	wg.Wait() // block until the wg counter == 0 we unblock
+	close(respch)
 
-	resultch := make(chan result, 1)
-
-	go func() {
-		res, err := thirdHTTPCall()
-		resultch <- result{
-			userId: res,
-			err:    err,
+	///keep ranging but when to stop??
+	// by close(respch) it knows that now it should break
+	userProfile := &UserProfile{}
+	for resp := range respch {
+		if resp.err != nil {
+			return nil, resp.err
 		}
-	}()
+		switch msg := resp.data.(type) {
+		case int:
+			userProfile.Likes = msg
+		case []int:
+			userProfile.Friends = msg
+		case []string:
+			userProfile.Comments = msg
 
-	select {
-	// Done()
-	// -> context tiemout is exceeded or canceled by cancel()
-	case <-ctx.Done():
-		return "", ctx.Err()
-	case res := <-resultch:
-		return res.userId, res.err
+		}
 	}
+
+	return userProfile, nil
 }
 
-func thirdHTTPCall() (string, error) {
+func getComments(id int, respch chan Response, wg *sync.WaitGroup) {
+	_ = id
+
+	time.Sleep(time.Millisecond * 200)
+	comments := []string{
+		"hey buddy..",
+		"where are you??",
+		"comming for cricket match today???",
+	}
+	respch <- Response{
+		data: comments,
+		err:  nil,
+	}
+
+	//work is done
+	wg.Done()
+}
+
+func getFriends(id int, respch chan Response, wg *sync.WaitGroup) {
+	_ = id
 	time.Sleep(time.Millisecond * 100)
-	return "userID: 12", nil
+	friendIds := []int{23, 434, 342, 23}
+
+	respch <- Response{
+		data: friendIds,
+		err:  nil,
+	}
+
+	wg.Done()
+}
+
+func getLikes(id int, respch chan Response, wg *sync.WaitGroup) {
+	_ = id
+	time.Sleep(time.Millisecond * 200)
+	respch <- Response{
+		data: 23,
+		err:  nil,
+	}
+
+	//work is done
+	wg.Done()
 }
